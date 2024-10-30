@@ -1,0 +1,16 @@
+{
+    "id": 314277501,
+    "category": {
+      "id": 1,
+      "name": "cachorro"
+    },
+    "name": "Baruk",
+    "photoUrls": [],
+    "tags": [
+      {
+        "id": 9,
+        "name": "vacinado"
+      }
+    ],
+    "status": "available"
+  }
