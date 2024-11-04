@@ -2,22 +2,25 @@
 
 // 1 - bibliotecas
 
-import io.restassured.response.Response; // Classe Resposta do REST-assured
+import static io.restassured.RestAssured.given; // função given
+// Classe de verificadores do Hamcrest
+import static org.hamcrest.Matchers.is;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestClassOrder;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvFileSource;
 
-import java.io.IOException;
-import java.lang.reflect.Method;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import com.google.gson.Gson;
 
-import static io.restassured.RestAssured.config;
-import static io.restassured.RestAssured.given; // função given
-import static org.hamcrest.Matchers.*;          // Classe de verificadores do Hamcrest
+
+
 
 // 2 - classe
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class) // Ativa a ordenação
@@ -67,15 +70,17 @@ public class TestPet {
         ; // fim do given 
 
     }
+
     @Test @Order(2)
     public void testGetPet(){
         // Configura
         // Entrada e Saídas definidas no nível da Classe -
-        
+              
         given()
         .contentType(ct)
-        .log().all()
-        // quando é get ou delete não body
+        .log().all()       
+        .header("", "api_key: " + TestUser.testLogin())
+            // quando é get ou delete não body
         // Executa
         .when()
         .get(uriPet + "/" + petId)  // montar o endpoint da URI/<petId>
@@ -89,7 +94,8 @@ public class TestPet {
             .body("tags[0].name", is(tagName))  // se está vacinado
  
         ; // fim do given
-    }   
+    }  
+
     @Test @Order(3)
     public void testPutPet() throws IOException{
         // Configura
@@ -111,8 +117,7 @@ public class TestPet {
             .body("category.name", is(categoryName)) // se é cachorro
             .body("tags[0].name", is(tagName))  // se está vacinado
             .body("status", is(status[1]))  // status do pet na loja
- 
-        ;
+         ;
  
     }
     @Test @Order(4)
@@ -132,9 +137,67 @@ public class TestPet {
             .body("code", is(200))      // se apagou
             .body("type", is("unknown"))
             .body("message", is(String.valueOf(petId)))
+        ;
+    }    
+
+    // Data Driven Testing (DDT) / Teste Direcionado por Dados / Teste com MAssa
+    // Teste com Json parametrizado
+
+    @ParameterizedTest @Order(5)
+    @CsvFileSource(resources = "/csv/petMassa.csv", numLinesToSkip = 1, delimiter = ',')
+    public void testPostPetDDT(
+        int petId,
+        String petName,
+        int catId,          
+        String catName,
+        String status1,
+        String status2
+    ) // fim dos parametros
+    { // inicio do código do método testPostPetDDT
+
+        // Criar a classe pet para receber os dados do csv
+        Pet pet = new Pet(); // instancia a classe User
+        Pet.Category category = pet.new Category(); // Instancia a subclasse Category
+        Pet.Tag[] tags = new Pet.Tag[2]; // Instancia a subclasse Tag
+        tags[0] = pet.new Tag();
+        tags[1] = pet.new Tag();
+
+        pet.id = petId;
+        pet.category = category; // associar a pet category com a subclasse category
+        pet.category.id = catId;
+        pet.category.name = catName;
+        pet.name = petName;
+        // pet.photoUrls não precisa ser incluido porque será vazio
+        pet.tags = tags; // associa a pet.tags com a subclasse tags
+        pet.tags[0].id = 9;
+        pet.tags[0].name = "vacinado";
+        pet.tags[0].id = 8;
+        pet.tags[0].name = "vermifugado";
+        pet.status = status1; // status inicial usado no Post = "available"
+        
+        // Criar um Json para o Body a ser enviado a partir da classe Pet e do CSV
+        Gson gson = new Gson(); // instancia a classe Gson como o objeto gson
+        String jsonBody = gson.toJson(pet);
+
+        given()
+            .contentType(ct)
+            .log().all()
+            .body(jsonBody)
+        .when()
+            .post(uriPet)
+        .then()
+            .log().all()
+            .statusCode(200)
+            .body("id", is(petId))
+            .body("name", is(petName))
+            .body("category.id", is(catId))
+            .body("category.name", is(catName))
+            .body("status", is(status1)) // inicial do Post
 
         ;
 
+
     }
- 
+
+
 }
